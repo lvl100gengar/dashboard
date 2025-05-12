@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transaction Report</title>
+    <style>
+        /* Modern Report Styles */
+        :root {
+            --primary-color: #3498db;
+            --primary-light: #5dade2;
+            --primary-dark: #2980b9;
+            --secondary-color: #2c3e50;
+            --success-color: #2ecc71;
+            --warning-color: #f39c12;
+            --danger-color: #e74c3c;
+            --light-bg: #f8f9fa;
+            --dark-bg: #343a40;
+            --text-color: #333;
+            --text-muted: #6c757d;
+            --light-text: #f8f9fa;
+            --border-radius: 8px;
+            --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            --elevation-1: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+            --elevation-2: 0 3px 6px rgba(0,0,0,0.15), 0 2px 4px rgba(0,0,0,0.12);
+        }
+        
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Oxygen, Ubuntu, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f4f8;
+            color: var(--text-color);
+            line-height: 1.6;
+            position: relative;
+        }
+        
+        .watermark {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1;
+            pointer-events: none;
+            opacity: 0.15;
+            transform: rotate(-30deg);
+            font-size: 6vw;
+            font-weight: bold;
+            color: var(--danger-color);
+            text-transform: uppercase;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1rem;
+            position: relative;
+        }
+        
+        .header {
+            margin-bottom: 1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .logo {
+            font-size: 1.8rem;
+            color: var(--secondary-color);
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.25rem;
+        }
+        
+        .logo-icon {
+            color: var(--primary-color);
+            margin-right: 0.5rem;
+        }
+        
+        h1 {
+            color: var(--secondary-color);
+            margin: 0 0 0.5rem;
+            font-size: 2rem;
+            font-weight: 600;
+            text-align: center;
+        }
+        
+        .report-meta {
+            background-color: white;
+            padding: 0.75rem;
+            border-radius: var(--border-radius);
+            box-shadow: var(--elevation-1);
+            margin-bottom: 1rem;
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .report-meta .pill {
+            background-color: var(--primary-light);
+            color: white;
+            border-radius: 50px;
+            padding: 0.25rem 1rem;
+            font-weight: 500;
+            font-size: 0.8rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .report-date {
+            font-style: italic;
+            font-size: 0.85rem;
+        }
+        
+        .card {
+            background-color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--elevation-1);
+            padding: 1rem;
+            margin-bottom: 1rem;
+            transition: all 0.25s ease;
+        }
+        
+        .card:hover {
+            box-shadow: var(--elevation-2);
+        }
+        
+        .stat-section {
+            margin-bottom: 1.25rem;
+        }
+        
+        .stat-section h3 {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 0 0 0.5rem 0;
+            padding-left: 0.25rem;
+        }
+        
+        h2 {
+            color: var(--secondary-color);
+            margin: 0 0 0.75rem;
+            padding-bottom: 0.5rem;
+            font-size: 1.2rem;
+            font-weight: 500;
+            border-bottom: 1px solid #eaecef;
+            display: flex;
+            align-items: center;
+        }
+        
+        h2 .icon {
+            margin-right: 0.5rem;
+            color: var(--primary-color);
+        }
+        
+        .overall-card {
+            border-top: 3px solid var(--primary-color);
+        }
+        
+        .user-card {
+            border-top: 3px solid var(--success-color);
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-item {
+            background-color: var(--light-bg);
+            border-radius: var(--border-radius);
+            padding: 0.6rem 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .highlight-stat {
+            background-color: rgba(52, 152, 219, 0.1);
+            border-left: 3px solid var(--primary-color);
+        }
+        
+        .highlight-stat .stat-value {
+            color: var(--primary-color);
+            font-size: 1.1rem;
+        }
+        
+        .stat-label {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        
+        .stat-value {
+            font-weight: 600;
+            color: var(--text-color);
+            font-size: 0.9rem;
+        }
+        
+        .status-breakdown {
+            background-color: var(--light-bg);
+            border-radius: var(--border-radius);
+            padding: 0.75rem;
+            margin-top: 1rem;
+        }
+        
+        .status-breakdown h3 {
+            color: var(--secondary-color);
+            margin: 0 0 0.75rem;
+            font-size: 1rem;
+            font-weight: 500;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+            padding-bottom: 0.4rem;
+        }
+        
+        .status-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 0.5rem;
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .status-item {
+            background-color: white;
+            border-radius: var(--border-radius);
+            padding: 0.5rem 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.5rem;
+            border-radius: 50px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: none;
+            line-height: 1;
+        }
+        
+        .status-badge.complete {
+            background-color: #e8f7f0;
+            color: #16a057;
+        }
+        
+        .status-badge.submitted {
+            background-color: #fef5e6;
+            color: #d68000;
+        }
+        
+        .status-badge.bad-request,
+        .status-badge.timeout,
+        .status-badge.ep-unavailable,
+        .status-badge.cd-unavailable {
+            background-color: #fbeaea;
+            color: #d63031;
+        }
+        
+        .status-count {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        
+        .footer {
+            text-align: center;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 1.5rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid #eee;
+        }
+        
+        .footer-logo {
+            margin-bottom: 0.5rem;
+            color: var(--primary-color);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .footer-logo .icon {
+            margin-right: 0.25rem;
+        }
+        
+        /* Responsive styles */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .status-list {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    {% if using_example_data %}
+    <div class="watermark">Example Data</div>
+    {% endif %}
+    
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <span class="logo-icon">&#x1F4CA;</span>
+                <span>Transaction Report</span>
+            </div>
+        </div>
+        
+        <div class="report-meta">
+            <div class="pill">Report Period</div>
+            <div class="report-date">
+                {{ report_data.overall_stats.start_time_str }} to {{ report_data.overall_stats.end_time_str }}
+            </div>
+            <div class="generation-time">
+                Generated on {{ now.strftime('%Y-%m-%d %H:%M:%S') }}
+            </div>
+        </div>
+        
+        <div class="card overall-card">
+            <h2><span class="icon">&#x1F4C8;</span> Overall Statistics</h2>
+            
+            <div class="stat-section">
+                <h3>Transaction Volumes</h3>
+                <div class="stats-grid">
+                    <div class="stat-item highlight-stat">
+                        <div class="stat-label">Total Transactions</div>
+                        <div class="stat-value">{{ report_data.overall_stats.total_transactions }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Total Data Volume</div>
+                        <div class="stat-value">{{ report_data.overall_stats.total_bytes | filesizeformat }}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="stat-section">
+                <h3>Data Transfer Rates</h3>
+                <div class="stats-grid">
+                    <div class="stat-item highlight-stat">
+                        <div class="stat-label">Average Rate</div>
+                        <div class="stat-value">{{ report_data.overall_stats.avg_data_rate_formatted }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Minimum Rate</div>
+                        <div class="stat-value">{{ report_data.overall_stats.min_data_rate_formatted }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Maximum Rate</div>
+                        <div class="stat-value">{{ report_data.overall_stats.max_data_rate_formatted }}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="stat-section">
+                <h3>Transit Time</h3>
+                <div class="stats-grid">
+                    <div class="stat-item highlight-stat">
+                        <div class="stat-label">Average Time</div>
+                        <div class="stat-value">{{ report_data.overall_stats.avg_transit_time_formatted }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Minimum Time</div>
+                        <div class="stat-value">{{ report_data.overall_stats.min_transit_time_formatted }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Maximum Time</div>
+                        <div class="stat-value">{{ report_data.overall_stats.max_transit_time_formatted }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">75th Percentile</div>
+                        <div class="stat-value">{{ report_data.overall_stats.p75_transit_time_formatted }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">95th Percentile</div>
+                        <div class="stat-value">{{ report_data.overall_stats.p95_transit_time_formatted }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">99th Percentile</div>
+                        <div class="stat-value">{{ report_data.overall_stats.p99_transit_time_formatted }}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="status-breakdown">
+                <h3>Status Distribution</h3>
+                <ul class="status-list">
+                {% for status, count in report_data.overall_stats.status_breakdown.items() %}
+                    <li class="status-item">
+                        <span class="status-badge {{ status.lower() }}">{{ status }}</span>
+                        <span class="status-count">{{ count }} ({{ "%.1f"|format((count / report_data.overall_stats.total_transactions) * 100 if report_data.overall_stats.total_transactions else 0) }}%)</span>
+                    </li>
+                {% endfor %}
+                </ul>
+            </div>
+        </div>
+        
+        {% for username, user_stats in report_data.user_stats.items() %}
+        <div class="card user-card">
+            <h2><span class="icon">&#x1F464;</span> User: {{ username }}</h2>
+            
+            <div class="stat-section">
+                <h3>Transaction Volumes</h3>
+                <div class="stats-grid">
+                    <div class="stat-item highlight-stat">
+                        <div class="stat-label">Total Transactions</div>
+                        <div class="stat-value">{{ user_stats.total_transactions }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Total Data Volume</div>
+                        <div class="stat-value">{{ user_stats.total_bytes | filesizeformat }}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="stat-section">
+                <h3>Data Transfer Rates</h3>
+                <div class="stats-grid">
+                    <div class="stat-item highlight-stat">
+                        <div class="stat-label">Average Rate</div>
+                        <div class="stat-value">{{ user_stats.avg_data_rate_formatted }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Minimum Rate</div>
+                        <div class="stat-value">{{ user_stats.min_data_rate_formatted }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Maximum Rate</div>
+                        <div class="stat-value">{{ user_stats.max_data_rate_formatted }}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="stat-section">
+                <h3>Transit Time</h3>
+                <div class="stats-grid">
+                    <div class="stat-item highlight-stat">
+                        <div class="stat-label">Average Time</div>
+                        <div class="stat-value">{{ user_stats.avg_transit_time_formatted }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Minimum Time</div>
+                        <div class="stat-value">{{ user_stats.min_transit_time_formatted }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Maximum Time</div>
+                        <div class="stat-value">{{ user_stats.max_transit_time_formatted }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">75th Percentile</div>
+                        <div class="stat-value">{{ user_stats.p75_transit_time_formatted }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">95th Percentile</div>
+                        <div class="stat-value">{{ user_stats.p95_transit_time_formatted }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">99th Percentile</div>
+                        <div class="stat-value">{{ user_stats.p99_transit_time_formatted }}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="status-breakdown">
+                <h3>Status Distribution</h3>
+                <ul class="status-list">
+                {% for status, count in user_stats.status_breakdown.items() %}
+                    <li class="status-item">
+                        <span class="status-badge {{ status.lower() }}">{{ status }}</span>
+                        <span class="status-count">{{ count }} ({{ "%.1f"|format((count / user_stats.total_transactions) * 100 if user_stats.total_transactions else 0) }}%)</span>
+                    </li>
+                {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endfor %}
+        
+        <div class="footer">
+            <div class="footer-logo">
+                <span class="icon">&#x1F5C4;</span> Transaction Monitoring Dashboard
+            </div>
+            Report generated on {{ now.strftime('%Y-%m-%d %H:%M:%S') }}
+        </div>
+    </div>
+</body>
+</html> 

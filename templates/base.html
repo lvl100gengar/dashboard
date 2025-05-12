@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Transaction Monitoring{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    {% block head_extra %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-left">
+                <a class="nav-brand" href="{{ url_for('index') }}"><i class="fas fa-shield-alt"></i> Transaction Dashboard</a>
+                <ul class="nav-menu">
+                    <li class="nav-item"><a href="{{ url_for('index') }}" {% if request.path == url_for('index') %}class="active"{% endif %}><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+                </ul>
+            </div>
+            <div class="db-status-wrapper">
+                <div id="db-status-container" class="db-status dropdown-trigger">
+                    <span class="status-indicator"></span>
+                    <div class="status-content">
+                        <span class="status-text">DB Status: Checking...</span>
+                        <span class="status-time">Last checked: --:--:--</span>
+                    </div>
+                    <i class="fas fa-chevron-down dropdown-arrow"></i>
+                </div>
+                <div class="db-status-details">
+                    <div class="details-header">
+                        <i class="fas fa-database"></i> Database Management
+                    </div>
+                    <div class="details-content">
+                        <div class="detail-row" id="error-container" style="display: none;">
+                            <span class="detail-label">Error:</span>
+                            <span class="detail-value" id="detail-error">None</span>
+                        </div>
+                        
+                        <div class="detail-row">
+                            <span class="detail-label">Status:</span>
+                            <span class="detail-value" id="detail-status">Checking...</span>
+                        </div>
+                        
+                        <div class="detail-row">
+                            <span class="detail-label">Connection:</span>
+                            <span class="detail-value" id="detail-connection">localhost:3306 (MySQL)</span>
+                        </div>
+                        
+                        <div class="detail-row">
+                            <span class="detail-label">Last Checked:</span>
+                            <span class="detail-value" id="detail-time">--:--:--</span>
+                        </div>
+                        
+                        <div class="dropdown-section-header">Database Actions</div>
+                        <form id="quickClearForm" method="POST" action="{{ url_for('admin_clear_db') }}" class="db-action-form">
+                            <button type="submit" class="db-action-btn db-action-danger" id="clearDbBtn" onclick="return confirmDatabaseClear();">
+                                <i class="fas fa-trash-alt"></i> Clear All Transactions
+                            </button>
+                        </form>
+                        
+                        <button type="button" class="db-action-btn" id="viewStatsBtn" onclick="toggleDatabaseStats();">
+                            <i class="fas fa-chart-bar"></i> View Database Statistics
+                        </button>
+                        
+                        <div id="dbStats" class="db-stats-container" style="display: none;">
+                            <div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading statistics...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <div id="globalFlashContainer" class="global-flash-container"></div>
+    
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+    
+    <script>
+        function confirmDatabaseClear() {
+            return confirm('WARNING: You are about to permanently delete all transaction records.\n\nThis action cannot be undone. Are you absolutely sure you want to proceed?');
+        }
+        
+        function toggleDatabaseStats() {
+            const statsContainer = document.getElementById('dbStats');
+            const statsBtn = document.getElementById('viewStatsBtn');
+            
+            if (statsContainer.style.display === 'none') {
+                statsContainer.style.display = 'block';
+                statsBtn.innerHTML = '<i class="fas fa-chart-bar"></i> Hide Statistics';
+                
+                // This is a placeholder. In a real implementation, you would fetch actual stats
+                setTimeout(() => {
+                    statsContainer.innerHTML = `
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <span class="stat-label">Total Records</span>
+                                <span class="stat-value">Database connection unavailable</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Database Size</span>
+                                <span class="stat-value">Database connection unavailable</span>
+                            </div>
+                        </div>
+                        <p class="stats-note">Note: Actual database statistics would be displayed here when connected.</p>
+                    `;
+                }, 1000);
+            } else {
+                statsContainer.style.display = 'none';
+                statsBtn.innerHTML = '<i class="fas fa-chart-bar"></i> View Database Statistics';
+            }
+        }
+        
+        // Function to show global flash messages
+        function showGlobalFlash(message, type = 'info') {
+            const container = document.getElementById('globalFlashContainer');
+            const flashDiv = document.createElement('div');
+            flashDiv.className = `global-flash ${type}`;
+            
+            const icon = type === 'success' ? 'check-circle' : 
+                         type === 'error' ? 'exclamation-circle' : 'info-circle';
+            
+            flashDiv.innerHTML = `<i class="fas fa-${icon}"></i> ${message}`;
+            container.appendChild(flashDiv);
+            
+            // Auto-hide after a few seconds
+            setTimeout(() => {
+                flashDiv.style.opacity = '0';
+                setTimeout(() => {
+                    flashDiv.remove();
+                }, 500);
+            }, 5000);
+        }
+    </script>
+    {% block scripts %}{% endblock %}
+
+    <script>
+        // Handle database clear form submission
+        document.addEventListener('DOMContentLoaded', function() {
+            const quickClearForm = document.getElementById('quickClearForm');
+            if (quickClearForm) {
+                quickClearForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    if (confirmDatabaseClear()) {
+                        fetch(this.action, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                            }
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            showGlobalFlash(data.message, data.message_type);
+                            
+                            // Close the dropdown
+                            document.querySelector('.db-status-details').classList.remove('open');
+                        })
+                        .catch(error => {
+                            showGlobalFlash('An error occurred while processing your request.', 'error');
+                            console.error('Error:', error);
+                        });
+                    }
+                });
+            }
+            
+            // Enhanced dropdown behavior
+            const dbStatusWrapper = document.querySelector('.db-status-wrapper');
+            const dbStatus = document.querySelector('.db-status');
+            const dbStatusDetails = document.querySelector('.db-status-details');
+            
+            if (dbStatus && dbStatusDetails) {
+                let isOverDropdown = false;
+                let isOverTrigger = false;
+                let closeTimeout;
+                
+                // Toggle dropdown on click
+                dbStatus.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    dbStatusDetails.classList.toggle('open');
+                });
+                
+                // Track mouse enter/leave for trigger
+                dbStatus.addEventListener('mouseenter', function() {
+                    isOverTrigger = true;
+                    clearTimeout(closeTimeout);
+                    dbStatusDetails.classList.add('open');
+                });
+                
+                dbStatus.addEventListener('mouseleave', function() {
+                    isOverTrigger = false;
+                    if (!isOverDropdown) {
+                        closeTimeout = setTimeout(() => {
+                            if (!isOverTrigger && !isOverDropdown) {
+                                dbStatusDetails.classList.remove('open');
+                            }
+                        }, 300); // 300ms delay gives time to move to dropdown
+                    }
+                });
+                
+                // Track mouse enter/leave for dropdown
+                dbStatusDetails.addEventListener('mouseenter', function() {
+                    isOverDropdown = true;
+                    clearTimeout(closeTimeout);
+                });
+                
+                dbStatusDetails.addEventListener('mouseleave', function() {
+                    isOverDropdown = false;
+                    if (!isOverTrigger) {
+                        closeTimeout = setTimeout(() => {
+                            if (!isOverTrigger && !isOverDropdown) {
+                                dbStatusDetails.classList.remove('open');
+                            }
+                        }, 300);
+                    }
+                });
+                
+                // Close dropdown when clicking outside
+                document.addEventListener('click', function(e) {
+                    if (!dbStatusWrapper.contains(e.target)) {
+                        dbStatusDetails.classList.remove('open');
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html> 

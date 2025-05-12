@@ -1,0 +1,62 @@
+Database Specs
+==============
+A MySQL 8.0.37 has been setup and the following database and table have been created:
+
+CREATE TABLE dashboard.transactions (
+    transaction_id CHAR(36) NOT NULL,
+    username VARCHAR(50) NOT NULL,
+    file_name VARCHAR(255) NOT NULL,
+    file_size BIGINT NOT NULL,
+    ingress_server VARCHAR(100) NOT NULL,
+    ingress_time DATETIME(3) NOT NULL,
+    egress_server VARCHAR(100),
+    egress_time DATETIME(3),
+    status ENUM('BAD_REQUEST', 'SUBMITTED', 'COMPLETE', 'TIMEOUT', 'EP_UNAVAILABLE', 'CD_UNAVAILABLE') NOT NULL,
+    PRIMARY KEY (transaction_id),
+    INDEX idx_username (username),
+    INDEX idx_status (status),
+    INDEX idx_ingress_time (ingress_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+
+Application Features
+====================
+The app is a website that displays realtime tracking and stats about transactions using the database table defined above.
+
+1. Use Python 3 to create a responsive, performant, and maintainable web application. Use best practices for Python 3 code.
+Make use of styles and icons to create a compelling application. Application will not have access to the internet so 
+ensure any external resources are available offline. Use Flask as the framework.
+
+Make sure the website works even if no database connectivity has been established and generate example data as if the site 
+was being used for a demo. This data can be minimal (no more than 3 rows) and random where necessary. Hardcode the data.
+
+When developing the application, assume that the database already exists and does not need to be created.
+
+2. Authentication is handled externally so the application need not include authentication, user accounts, permissions, etc.
+
+3. The primary use case is a dashboard which displays realtime statistics and tracking for the last 10, 30 or 60 minutes.
+Display ingress server stats on the left, cd server stats in the middle, and egress server stats on the right. For the 
+ingress stats, show the number of transactions with the BAD_REQUEST and CD_UNAVAILABLE status. For the cd stats, display 
+number of transactions with SUBMITTED status. For the egress stats, show number of COMPLETE and EP_UNAVAILABLE transactions, 
+calculate a data rate and transactions per second for all of these transactions. COMPLETE and EP_UNAVAILABLE transactions 
+are guarantee to have an egress_time.
+
+Round all stats to 1 decimal place.
+
+4. Also show a table of the most recent transactions. Include filters on username and status. Allow user to select the 
+refresh rate (1s, default 3s, 5s, 10s) number of items displayed (50 default, 100, or 200). Columns should include username, 
+file name, file size, ingress time, egress time, transit time (egress time - ingress time) and status. Also include a 
+button/link to allow copying an entire record. Make use of color and style to create visually distinct rows based on status.
+
+5. Build a form that allows the user to generate reports from the database in a user-friendly manner. Options for the report 
+are datetime range and username (or all users) and report format(s). Default options are daterange corresponding to the last 
+24 hours and all users. Report format options should include CSV and HTML. The CSV output is a direct output of the database 
+table with headers. The HTML report should begin with a statistics section for all data in the report, including total 
+files/bytes transferred, min/max/average data rates, min/max/average transit times, and breakdown of status. All calculated 
+stats should include standard deviation figures where it makes sense. Next, show the same stats and data for each distinct 
+username in the dataset.
+
+6. Create a menu/page with administrative functions. Include options to clear the database.
+
+7. Use an .env file to store environment variables, including database connection info.

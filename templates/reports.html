@@ -1,0 +1,360 @@
+{% extends "base.html" %}
+
+{% block title %}Reports - {{ super() }}{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css" />
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h1><i class="fas fa-chart-bar"></i> Transaction Reports</h1>
+    
+    <form id="reportForm" method="POST" action="{{ url_for('reports') }}" class="report-form">
+        <div class="form-group">
+            <label for="daterange"><i class="fas fa-calendar-alt"></i> Date Range:</label>
+            <input type="text" name="daterange" id="daterange" value="{{ request.form.daterange if request.form.daterange else default_daterange }}" class="form-control" />
+        </div>
+        <div class="form-group">
+            <label for="username"><i class="fas fa-user"></i> Username:</label>
+            <select name="username" id="username" class="form-control">
+                <option value="all">All Users</option>
+                <!-- Options will be populated via JavaScript -->
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="report_format"><i class="fas fa-file-export"></i> Report Format:</label>
+            <select name="report_format" id="report_format" class="form-control">
+                <option value="html" {% if request.form.report_format == 'html' %}selected{% endif %}>HTML</option>
+                <option value="csv" {% if request.form.report_format == 'csv' %}selected{% endif %}>CSV</option>
+            </select>
+        </div>
+        <div class="form-actions">
+            <button type="button" id="viewReportBtn" class="btn btn-primary"><i class="fas fa-eye"></i> View Report</button>
+            <button type="button" id="downloadReportBtn" class="btn btn-primary"><i class="fas fa-download"></i> Download Report</button>
+        </div>
+    </form>
+</div>
+
+<!-- No data message shown when needed -->
+{% if request.method == 'POST' and not report_data %}
+<div class="no-data-message">
+    <i class="fas fa-exclamation-circle"></i> No data found for the selected criteria.
+</div>
+{% endif %}
+
+<!-- Modal for HTML reports -->
+<div id="reportModal" class="modal-overlay" style="display: none;">
+    <div class="modal">
+        <div class="modal-header">
+            <h2><i class="fas fa-chart-pie"></i> Transaction Report</h2>
+            <button class="modal-close" id="closeModal"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body" id="reportModalContent">
+            <!-- Report content will be loaded here -->
+        </div>
+        <div class="modal-footer">
+            <button id="printReportBtn" class="btn btn-primary"><i class="fas fa-print"></i> Print</button>
+            <button id="closeReportBtn" class="btn btn-primary"><i class="fas fa-times"></i> Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Template for HTML report content -->
+<template id="htmlReportTemplate">
+    {% if report_data and report_format == 'html' %}
+    <div class="report-summary">
+        <h3><i class="fas fa-chart-line"></i> Overall Statistics</h3>
+        <p class="report-date-range">{{ report_data.overall_stats.start_time_str }} to {{ report_data.overall_stats.end_time_str }}</p>
+        
+        <ul>
+            <li>
+                <span>Total Transactions</span>
+                <span>{{ report_data.overall_stats.total_transactions }}</span>
+            </li>
+            <li>
+                <span>Total Data Volume</span>
+                <span>{{ report_data.overall_stats.total_bytes | filesizeformat }}</span>
+            </li>
+            <li>
+                <span>Data Rate (Min/Max/Avg)</span>
+                <span>{{ "%.1f"|format(report_data.overall_stats.min_data_rate_mbps) }} / 
+                {{ "%.1f"|format(report_data.overall_stats.max_data_rate_mbps) }} / 
+                {{ "%.1f"|format(report_data.overall_stats.avg_data_rate_mbps) }} Mbps</span>
+            </li>
+            <li>
+                <span>Data Rate StdDev</span>
+                <span>{{ "%.1f"|format(report_data.overall_stats.stddev_data_rate_mbps) }} Mbps</span>
+            </li>
+            <li>
+                <span>Transit Time (Min/Max/Avg)</span>
+                <span>{{ "%.3f"|format(report_data.overall_stats.min_transit_time) }} / 
+                {{ "%.3f"|format(report_data.overall_stats.max_transit_time) }} / 
+                {{ "%.3f"|format(report_data.overall_stats.avg_transit_time) }} sec</span>
+            </li>
+            <li>
+                <span>Transit Time StdDev</span>
+                <span>{{ "%.3f"|format(report_data.overall_stats.stddev_transit_time) }} sec</span>
+            </li>
+        </ul>
+        
+        <h4>Status Distribution</h4>
+        <ul class="status-breakdown">
+        {% for status, count in report_data.overall_stats.status_breakdown.items() %}
+            <li>
+                <span>{{ status }}</span>
+                <span>{{ count }} ({{ "%.1f"|format((count / report_data.overall_stats.total_transactions) * 100 if report_data.overall_stats.total_transactions else 0) }}%)</span>
+            </li>
+        {% endfor %}
+        </ul>
+    </div>
+
+    {% for username, user_stats in report_data.user_stats.items() %}
+    <div class="report-user-summary">
+        <h3><i class="fas fa-user"></i> User: {{ username }}</h3>
+        
+        <ul>
+            <li>
+                <span>Total Transactions</span>
+                <span>{{ user_stats.total_transactions }}</span>
+            </li>
+            <li>
+                <span>Total Data Volume</span>
+                <span>{{ user_stats.total_bytes | filesizeformat }}</span>
+            </li>
+            <li>
+                <span>Data Rate (Min/Max/Avg)</span>
+                <span>{{ "%.1f"|format(user_stats.min_data_rate_mbps) }} / 
+                {{ "%.1f"|format(user_stats.max_data_rate_mbps) }} / 
+                {{ "%.1f"|format(user_stats.avg_data_rate_mbps) }} Mbps</span>
+            </li>
+            <li>
+                <span>Data Rate StdDev</span>
+                <span>{{ "%.1f"|format(user_stats.stddev_data_rate_mbps) }} Mbps</span>
+            </li>
+            <li>
+                <span>Transit Time (Min/Max/Avg)</span>
+                <span>{{ "%.3f"|format(user_stats.min_transit_time) }} / 
+                {{ "%.3f"|format(user_stats.max_transit_time) }} / 
+                {{ "%.3f"|format(user_stats.avg_transit_time) }} sec</span>
+            </li>
+            <li>
+                <span>Transit Time StdDev</span>
+                <span>{{ "%.3f"|format(user_stats.stddev_transit_time) }} sec</span>
+            </li>
+        </ul>
+        
+        <h4>Status Distribution</h4>
+        <ul class="status-breakdown">
+        {% for status, count in user_stats.status_breakdown.items() %}
+            <li>
+                <span>{{ status }}</span>
+                <span>{{ count }} ({{ "%.1f"|format((count / user_stats.total_transactions) * 100 if user_stats.total_transactions else 0) }}%)</span>
+            </li>
+        {% endfor %}
+        </ul>
+    </div>
+    {% endfor %}
+
+    <h3><i class="fas fa-table"></i> Transaction Details</h3>
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>Transaction ID</th>
+                    <th>Username</th>
+                    <th>File Name</th>
+                    <th>File Size</th>
+                    <th>Ingress Server</th>
+                    <th>Ingress Time</th>
+                    <th>Egress Server</th>
+                    <th>Egress Time</th>
+                    <th>Transit Time</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in report_data.transactions %}
+                <tr class="status-{{ t.status.lower().replace('_', '-') }}">
+                    <td>{{ t.transaction_id }}</td>
+                    <td>{{ t.username }}</td>
+                    <td>{{ t.file_name }}</td>
+                    <td>{{ t.file_size | filesizeformat }}</td>
+                    <td>{{ t.ingress_server }}</td>
+                    <td>{{ t.ingress_time_str }}</td>
+                    <td>{{ t.egress_server if t.egress_server else 'N/A' }}</td>
+                    <td>{{ t.egress_time_str }}</td>
+                    <td>{{ t.transit_time_str }}</td>
+                    <td>{{ t.status }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</template>
+
+{% endblock %}
+
+{% block scripts %}
+<script type="text/javascript" src="https://cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
+<script type="text/javascript">
+$(function() {
+    // Date range picker setup
+    var defaultStartDate = moment().subtract(23, 'hours').startOf('hour');
+    var defaultEndDate = moment().startOf('hour');
+    
+    var initialDateRange = $('#daterange').val();
+    var startDate = defaultStartDate;
+    var endDate = defaultEndDate;
+
+    if (initialDateRange) {
+        var dates = initialDateRange.split(' - ');
+        if (dates.length === 2) {
+            var parsedStart = moment(dates[0], 'YYYY-MM-DD HH:mm:ss');
+            var parsedEnd = moment(dates[1], 'YYYY-MM-DD HH:mm:ss');
+            
+            if (parsedStart.isValid() && parsedEnd.isValid()) {
+                startDate = parsedStart;
+                endDate = parsedEnd;
+            }
+        }
+    }
+
+    $('input[name="daterange"]').daterangepicker({
+        startDate: startDate,
+        endDate: endDate,
+        timePicker: true,
+        timePicker24Hour: true,
+        timePickerIncrement: 15,
+        locale: {
+            format: 'YYYY-MM-DD HH:mm:ss'
+        },
+        ranges: {
+           'Last 24 Hours': [moment().subtract(24, 'hours'), moment()],
+           'Last 7 Days': [moment().subtract(6, 'days'), moment()],
+           'Last 30 Days': [moment().subtract(29, 'days'), moment()],
+           'This Month': [moment().startOf('month'), moment().endOf('month')],
+           'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+        }
+    });
+
+    // Load usernames from API
+    $.getJSON('/api/usernames', function(data) {
+        var select = $('#username');
+        $.each(data.usernames, function(i, username) {
+            select.append($('<option></option>').val(username).text(username));
+        });
+        
+        // Restore selected value if present
+        var selectedUser = "{{ request.form.username }}";
+        if (selectedUser) {
+            select.val(selectedUser);
+        }
+    }).fail(function() {
+        console.error('Failed to load usernames');
+    });
+
+    // View report button - show report in modal
+    $('#viewReportBtn').on('click', function(e) {
+        e.preventDefault();
+        
+        // Set form to HTML if CSV is selected (for viewing)
+        var originalFormat = $('#report_format').val();
+        $('#report_format').val('html');
+        
+        var formData = new FormData(document.getElementById('reportForm'));
+        
+        // Make AJAX request to get report data
+        $.ajax({
+            url: $('#reportForm').attr('action'),
+            method: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(data) {
+                // Extract the report content from the response
+                var reportContent = $(data).find('#htmlReportTemplate').html();
+                
+                if (reportContent && reportContent.trim() !== '') {
+                    // Insert content into modal
+                    $('#reportModalContent').html(reportContent);
+                    
+                    // Show modal
+                    $('#reportModal').fadeIn(300);
+                } else {
+                    alert('No data available for the selected criteria.');
+                }
+            },
+            error: function() {
+                alert('Error generating report. Please try again.');
+            },
+            complete: function() {
+                // Restore original format selection
+                $('#report_format').val(originalFormat);
+            }
+        });
+    });
+
+    // Download report button - direct form submission
+    $('#downloadReportBtn').on('click', function(e) {
+        e.preventDefault();
+        // Submit the form directly for downloads
+        document.getElementById('reportForm').submit();
+    });
+
+    // Modal close buttons
+    $('#closeModal, #closeReportBtn').on('click', function() {
+        $('#reportModal').fadeOut(300);
+    });
+
+    // Print report
+    $('#printReportBtn').on('click', function() {
+        var printWindow = window.open('', '_blank');
+        var reportContent = document.getElementById('reportModalContent').innerHTML;
+        var styles = Array.from(document.styleSheets)
+            .map(sheet => {
+                try {
+                    return Array.from(sheet.cssRules)
+                        .map(rule => rule.cssText)
+                        .join('\n');
+                } catch (e) {
+                    // CORS issue with external stylesheets
+                    return '';
+                }
+            })
+            .join('\n');
+
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Transaction Report</title>
+                <style>${styles}</style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1><i class="fas fa-chart-bar"></i> Transaction Report</h1>
+                    ${reportContent}
+                </div>
+            </body>
+            </html>
+        `);
+        
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(function() {
+            printWindow.print();
+        }, 500);
+    });
+
+    // Close modal when clicking outside of it
+    $(window).on('click', function(e) {
+        if ($(e.target).hasClass('modal-overlay')) {
+            $('#reportModal').fadeOut(300);
+        }
+    });
+});
+</script>
+{% endblock %} 
