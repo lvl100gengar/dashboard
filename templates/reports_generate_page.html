@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block title %}Generate Reports - {{ super() }}{% endblock %}
+
+{% block head_extra %}
+    <link rel="stylesheet" type="text/css" href="/static/css/daterangepicker.css" />
+    <style>
+        .report-form-container {
+            background-color: #fff;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            max-width: 600px;
+            margin: 20px auto;
+        }
+        .report-form-container h2 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        .form-group .form-control {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .report-actions {
+            display: flex;
+            justify-content: space-around; /* Distribute buttons nicely */
+            gap: 15px;
+            margin-top: 25px;
+        }
+        .report-actions .btn {
+            flex-grow: 1; /* Make buttons take equal space */
+            padding: 12px 15px;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="report-form-container">
+    <h2><i class="fas fa-file-alt"></i> Generate Transaction Report</h2>
+    <form id="reportForm" method="POST" action="{{ url_for('download_report') }}">
+        <div class="form-group">
+            <label for="daterange"><i class="fas fa-calendar-alt"></i> Date Range:</label>
+            <input type="text" name="daterange" id="daterange" class="form-control" />
+        </div>
+        <div class="form-group">
+            <label for="report_username"><i class="fas fa-user"></i> Username:</label>
+            <select name="username" id="report_username" class="form-control">
+                <option value="all">All Users</option>
+                <!-- Usernames loaded by JS -->
+            </select>
+        </div>
+        <input type="hidden" name="report_format" id="report_format_hidden" value="csv"> <!-- Changed ID to avoid conflict -->
+        
+        <div class="report-actions">
+            <button type="button" id="downloadCsvBtnReportPage" class="btn btn-primary"><i class="fas fa-file-csv"></i> Download CSV</button>
+            <button type="button" id="downloadHtmlBtnReportPage" class="btn btn-primary"><i class="fas fa-file-code"></i> Download HTML</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="text/javascript" src="/static/js/moment.min.js"></script>
+<script type="text/javascript" src="/static/js/daterangepicker.min.js"></script>
+<link rel="stylesheet" type="text/css" href="/static/css/daterangepicker.css" />
+
+<script>
+    function loadUsernamesForReport() {
+        fetch('/api/usernames')
+            .then(response => response.json())
+            .then(data => {
+                const reportUsernameSelect = document.getElementById('report_username');
+                const currentValue = reportUsernameSelect.value;
+                while (reportUsernameSelect.options.length > 1) reportUsernameSelect.remove(1);
+                data.usernames.forEach(username => {
+                    const option = document.createElement('option');
+                    option.value = username; option.textContent = username;
+                    reportUsernameSelect.appendChild(option);
+                });
+                if (currentValue) reportUsernameSelect.value = currentValue;
+            })
+            .catch(error => console.error('Error loading usernames for report:', error));
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Check for report messages in URL and display them using showGlobalFlash
+        const urlParams = new URLSearchParams(window.location.search);
+        const reportMessage = urlParams.get('report_message');
+        const reportMessageType = urlParams.get('report_message_type');
+
+        if (reportMessage && typeof showGlobalFlash === 'function') {
+            showGlobalFlash(reportMessage, reportMessageType || 'info');
+            // Optional: Remove the query parameters from the URL to prevent re-showing on refresh
+            if (history.replaceState) {
+                const cleanURL = window.location.pathname;
+                history.replaceState({}, document.title, cleanURL);
+            }
+        }
+
+        loadUsernamesForReport();
+
+        const defaultStartDate = moment().subtract(24, 'hours');
+        const defaultEndDate = moment();
+        
+        $('#daterange').daterangepicker({
+            startDate: defaultStartDate,
+            endDate: defaultEndDate,
+            timePicker: true,
+            timePicker24Hour: true,
+            timePickerIncrement: 15,
+            locale: { format: 'YYYY-MM-DD HH:mm:ss' },
+            ranges: {
+               'Last 24 Hours': [moment().subtract(24, 'hours'), moment()],
+               'Last 7 Days': [moment().subtract(6, 'days'), moment()],
+               'Last 30 Days': [moment().subtract(29, 'days'), moment()],
+               'This Month': [moment().startOf('month'), moment().endOf('month')],
+               'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+            }
+        });
+
+        document.getElementById('downloadCsvBtnReportPage').addEventListener('click', function() {
+            document.getElementById('report_format_hidden').value = 'csv';
+            document.getElementById('reportForm').submit();
+        });
+        
+        document.getElementById('downloadHtmlBtnReportPage').addEventListener('click', function() {
+            document.getElementById('report_format_hidden').value = 'html';
+            document.getElementById('reportForm').submit();
+        });
+    });
+</script>
+{% endblock %} 

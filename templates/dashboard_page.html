@@ -1,0 +1,377 @@
+{% extends "base.html" %}
+
+{% block title %}Realtime Dashboard - {{ super() }}{% endblock %}
+
+{% block head_extra %}
+<!-- Add any dashboard specific head elements here if needed -->
+<link rel="stylesheet" href="/static/css/fontawesome.all.min.css">
+<style>
+    /* Styles for controls - aligned with transactions_live_page.html */
+    .stats-controls {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px;
+        align-items: center;
+        flex-wrap: wrap;
+        padding: 15px;
+        background-color: var(--light-bg);
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .stats-controls .control-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .stats-controls .control-group label {
+        font-weight: 500;
+        font-size: 0.9em;
+        color: var(--text-color);
+    }
+
+    .stats-controls .control-group select {
+        padding: 8px 12px;
+        border-radius: var(--border-radius);
+        border: 1px solid var(--border-color);
+        background-color: #fff;
+        font-size: 0.9em;
+        color: var(--text-color);
+        min-width: 100px;
+    }
+
+    /* Styling for the redesigned stat blocks */
+    .stats-section h2 {
+        margin-bottom: 20px;
+        color: var(--primary-color);
+        font-size: 1.25em;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .unified-stats-container .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+
+    .stat-group {
+        background-color: #fff;
+        padding: 20px;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .stat-group h4 {
+        margin: 0 0 15px;
+        font-size: 1.05em;
+        color: var(--secondary-color);
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .stat-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        font-size: 0.9em;
+        border-bottom: 1px solid var(--border-color-light);
+    }
+
+    .stat-item:last-child {
+        border-bottom: none;
+    }
+
+    .stat-item strong {
+        color: var(--text-color);
+        font-weight: 500;
+    }
+
+    .stat-item .stat-value {
+        font-weight: 600;
+        color: var(--text-dark);
+    }
+
+    /* Status Distribution Chart */
+    .status-distribution-chart {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .chart-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 0.9em;
+    }
+
+    .chart-label {
+        flex-basis: 220px;
+        flex-shrink: 0;
+        white-space: nowrap;
+        color: var(--text-color);
+    }
+
+    .chart-bar-container {
+        flex-grow: 1;
+        background-color: var(--light-bg);
+        border-radius: var(--border-radius-sm);
+        height: 18px;
+        position: relative;
+    }
+
+    .chart-bar {
+        height: 100%;
+        border-radius: var(--border-radius-sm);
+        transition: width 0.3s ease-in-out;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        color: white;
+        font-size: 0.8em;
+        padding-right: 5px;
+    }
+
+    .chart-bar.status-submitted {
+        background-color: var(--warning-color);
+    }
+
+    .chart-bar.status-complete {
+        background-color: var(--success-color);
+    }
+
+    .chart-bar.status-bad_request {
+        background-color: var(--danger-color);
+    }
+
+    .chart-bar.status-cd_unavailable {
+        background-color: var(--danger-color);
+    }
+
+    .chart-bar.status-ep_unavailable {
+        background-color: var(--danger-color);
+    }
+
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-content">
+    <div class="transactions-section">
+        <div class="section-header">
+            <h2><i class="fas fa-chart-line"></i> Dashboard Statistics</h2>
+            <div class="table-controls">
+                <div class="control-item">
+                    <label for="time_window">Time Window:</label>
+                    <select name="time_window" id="time_window">
+                        <option value="10" {% if time_window==10 %}selected{% endif %}>Last 10 Min</option>
+                        <option value="30" {% if time_window==30 %}selected{% endif %}>Last 30 Min</option>
+                        <option value="60" {% if time_window==60 %}selected{% endif %}>Last 60 Min</option>
+                        <option value="1440" {% if time_window==1440 %}selected{% endif %}>Last 24 Hrs</option>
+                    </select>
+                </div>
+                <div class="control-item">
+                    <label for="refresh_rate">Auto-Refresh:</label>
+                    <select name="refresh_rate" id="refresh_rate">
+                        <option value="0">Off</option>
+                        <option value="3">3s</option>
+                        <option value="5" selected>5s</option>
+                        <option value="10">10s</option>
+                        <option value="30">30s</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="unified-stats-container" id="statsContainer">
+            <div class="loading-indicator">
+                <i class="fas fa-spinner fa-spin"></i> Loading statistics...
+            </div>
+        </div>
+
+        <div id="dashboardTransactionsTableContainer">
+            <!-- Transactions table will be loaded here -->
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let refreshTimer;
+    let isRefreshingStats = false;
+
+    function formatFileSizeForDashboard(bytes) {
+        if (bytes === null || bytes === undefined) return 'N/A';
+        if (bytes < 1024) return bytes + ' Bytes';
+        else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+        else if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB';
+        else return (bytes / 1073741824).toFixed(1) + ' GB';
+    }
+
+    function updateDashboardDisplay(data) {
+        const statsContainer = document.getElementById('statsContainer');
+        const transactionsTableContainer = document.getElementById('dashboardTransactionsTableContainer');
+
+        if (!data || !data.stats) {
+            statsContainer.innerHTML = '<div class="error-message"><i class="fas fa-exclamation-triangle"></i> Error loading statistics data.</div>';
+            transactionsTableContainer.innerHTML = '';
+            return;
+        }
+
+        const stats = data.stats;
+        const ingressStats = stats.ingress || {};
+        const egressStats = stats.egress || {};
+        const generalStats = stats.general || {};
+
+
+        statsContainer.innerHTML = '';
+        const statGrid = document.createElement('div');
+        statGrid.className = 'stat-grid';
+
+        // Key Metrics Group
+        let keyMetricsGroupHTML = '<div class="stat-group"><h4><i class="fas fa-cogs"></i> Key Metrics</h4>';
+        keyMetricsGroupHTML += `<div class="stat-item"><strong>Total Volume:</strong> <span class="stat-value">${egressStats.total_volume_complete_str !== undefined ? egressStats.total_volume_complete_str : '-'}</span></div>`;
+        keyMetricsGroupHTML += `<div class="stat-item"><strong>Tx/sec:</strong> <span class="stat-value">${egressStats.tx_per_sec !== undefined ? egressStats.tx_per_sec : '-'}</span></div>`;
+        keyMetricsGroupHTML += `<div class="stat-item"><strong>Data Rate:</strong> <span class="stat-value">${egressStats.data_rate_mbps !== undefined ? egressStats.data_rate_mbps + ' Mbps' : '-'}</span></div>`;
+        keyMetricsGroupHTML += `<div class="stat-item"><strong>Unique Users:</strong> <span class="stat-value">${generalStats.active_users !== undefined ? generalStats.active_users : '-'}</span></div>`;
+        keyMetricsGroupHTML += '</div>';
+        statGrid.innerHTML += keyMetricsGroupHTML;
+
+        // Latency (Transit Time) Group
+        let transitTimeGroupHTML = '<div class="stat-group"><h4><i class="fas fa-stopwatch"></i> Latency (Transit Time)</h4>';
+        transitTimeGroupHTML += `<div class="stat-item"><strong>Average:</strong> <span class="stat-value">${egressStats.avg_transit_time !== undefined ? egressStats.avg_transit_time : '-'}</span></div>`;
+        transitTimeGroupHTML += `<div class="stat-item"><strong>Maximum:</strong> <span class="stat-value">${egressStats.max_transit_time !== undefined ? egressStats.max_transit_time : '-'}</span></div>`;
+        transitTimeGroupHTML += `<div class="stat-item"><strong>P95:</strong> <span class="stat-value">${egressStats.p95_transit_time !== undefined ? egressStats.p95_transit_time : '-'}</span></div>`;
+        transitTimeGroupHTML += `<div class="stat-item"><strong>P99:</strong> <span class="stat-value">${egressStats.p99_transit_time !== undefined ? egressStats.p99_transit_time : '-'}</span></div>`;
+        transitTimeGroupHTML += '</div>';
+        statGrid.innerHTML += transitTimeGroupHTML;
+
+        statsContainer.appendChild(statGrid);
+
+        // Status Distribution Chart Group
+        const statusDistGroupContainer = document.createElement('div');
+        statusDistGroupContainer.className = 'stat-group';
+        statusDistGroupContainer.innerHTML = '<h4><i class="fas fa-chart-pie"></i> Transaction Status Distribution</h4><div class="status-distribution-chart" id="statusDistributionChartInternal"></div>';
+        statGrid.appendChild(statusDistGroupContainer);
+
+        const chartContainer = document.getElementById('statusDistributionChartInternal');
+        const statusCounts = {
+            'Submitted': ingressStats.SUBMITTED !== undefined ? ingressStats.SUBMITTED : 0,
+            'Complete': egressStats.COMPLETE !== undefined ? egressStats.COMPLETE : 0,
+            'Bad Request': ingressStats.BAD_REQUEST !== undefined ? ingressStats.BAD_REQUEST : 0,
+            'CD Unavailable': ingressStats.CD_UNAVAILABLE !== undefined ? ingressStats.CD_UNAVAILABLE : 0,
+            'EP Unavailable': egressStats.EP_UNAVAILABLE !== undefined ? egressStats.EP_UNAVAILABLE : 0
+        };
+        let totalDisplayStatuses = Object.values(statusCounts).reduce((sum, count) => sum + count, 0);
+
+        if (totalDisplayStatuses === 0) {
+            chartContainer.innerHTML = '<div class="stat-item"><span>No transaction data for distribution.</span></div>';
+        } else {
+            chartContainer.innerHTML = '';
+            for (const [statusName, count] of Object.entries(statusCounts)) {
+                const percentage = totalDisplayStatuses > 0 ? (count / totalDisplayStatuses * 100).toFixed(1) : 0;
+                const statusClass = statusName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+                const item = document.createElement('div');
+                item.className = 'chart-item';
+                item.innerHTML = `
+                    <span class="chart-label">${statusName}: ${count} (${percentage}%)</span>
+                    <div class="chart-bar-container"><div class="chart-bar status-${statusClass}" style="width: ${percentage}%;" title="${statusName}: ${count} (${percentage}%)"></div></div>
+                `;
+                chartContainer.appendChild(item);
+            }
+        }
+
+        // Render Transactions Table
+        const transactionsInWindow = data.transactions_in_window || [];
+        transactionsTableContainer.innerHTML = '';
+        if (transactionsInWindow.length > 0) {
+            let tableHtml = '<div class="table-responsive"><table class="data-table"><thead><tr>' +
+                '<th>Username</th><th>File Name</th><th class="numeric">File Size</th>' +
+                '<th>Ingress Time</th><th>Egress Time</th><th class="numeric">Transit Time</th><th>Status</th><th class="actions">Actions</th>' +
+                '</tr></thead><tbody>';
+            transactionsInWindow.forEach(tx => {
+                const statusClass = tx.status ? tx.status.toLowerCase().replace('_', '-') : 'unknown';
+                tableHtml += `
+                    <tr class="status-${statusClass}">
+                        <td>${tx.username || 'N/A'}</td>
+                        <td class="filename">${tx.file_name || 'N/A'}</td>
+                        <td class="numeric">${formatFileSizeForDashboard(tx.file_size)}</td>
+                        <td>${tx.ingress_time_str || 'N/A'}</td>
+                        <td>${tx.egress_time_str || 'N/A'}</td>
+                        <td class="numeric">${tx.transit_time || 'N/A'}</td>
+                        <td><span class="status-badge ${statusClass}">${tx.status || 'UNKNOWN'}</span></td>
+                        <td class="actions">
+                            <button class="copy-btn" data-transaction='${JSON.stringify(tx).replace(/'/g, "&#39;")}' title="Copy transaction details">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </td>
+                    </tr>`;
+            });
+            tableHtml += '</tbody></table></div>';
+            transactionsTableContainer.innerHTML = tableHtml;
+        } else {
+            transactionsTableContainer.innerHTML = '<div class="no-data-message">No transactions in the current time window.</div>';
+        }
+    }
+
+    function fetchDashboardData() {
+        if (isRefreshingStats) return;
+        isRefreshingStats = true;
+        const timeWindow = document.getElementById('time_window').value;
+        const statsContainer = document.getElementById('statsContainer');
+        const transactionsTableContainer = document.getElementById('dashboardTransactionsTableContainer');
+
+        if (!statsContainer.querySelector('.stat-grid')) {
+            statsContainer.innerHTML = '<div class="loading-indicator"><i class="fas fa-spinner fa-spin"></i> Loading statistics...</div>';
+        }
+        if (!transactionsTableContainer.querySelector('.data-table') && !transactionsTableContainer.querySelector('.no-data-message')) {
+            transactionsTableContainer.innerHTML = '<div class="loading-indicator"><i class="fas fa-spinner fa-spin"></i> Loading transactions...</div>';
+        }
+
+        fetch(`/api/dashboard-stats?time_window=${timeWindow}`)
+            .then(response => {
+                if (!response.ok) throw new Error('Network response: ' + response.statusText);
+                return response.json();
+            })
+            .then(data => {
+                updateDashboardDisplay(data);
+            })
+            .catch(error => {
+                console.error('Error fetching dashboard data:', error);
+                statsContainer.innerHTML = '<div class="error-message"><i class="fas fa-exclamation-triangle"></i> Error loading statistics. Please refresh.</div>';
+                transactionsTableContainer.innerHTML = '<div class="error-message"><i class="fas fa-exclamation-triangle"></i> Error loading transactions. Please refresh.</div>';
+            })
+            .finally(() => {
+                isRefreshingStats = false;
+            });
+    }
+
+    function setupDashboardAutoRefresh() {
+        clearInterval(refreshTimer);
+        const refreshRate = parseInt(document.getElementById('refresh_rate').value, 10) * 1000;
+        if (refreshRate > 0) {
+            refreshTimer = setInterval(fetchDashboardData, refreshRate);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        fetchDashboardData();
+        setupDashboardAutoRefresh();
+        document.getElementById('time_window').addEventListener('change', fetchDashboardData);
+        document.getElementById('refresh_rate').addEventListener('change', function () {
+            setupDashboardAutoRefresh();
+            if (this.value !== "0") fetchDashboardData();
+        });
+    });
+</script>
+{% endblock %}

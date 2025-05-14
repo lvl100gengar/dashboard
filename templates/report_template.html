@@ -227,8 +227,8 @@
         
         .status-list {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-            gap: 0.5rem;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 0.75rem;
             list-style-type: none;
             padding: 0;
             margin: 0;
@@ -316,11 +316,7 @@
         }
     </style>
 </head>
-<body>
-    {% if using_example_data %}
-    <div class="watermark">Example Data</div>
-    {% endif %}
-    
+<body>   
     <div class="container">
         <div class="header">
             <div class="logo">
@@ -343,7 +339,7 @@
             <h2><span class="icon">&#x1F4C8;</span> Overall Statistics</h2>
             
             <div class="stat-section">
-                <h3>Transaction Volumes</h3>
+                <h3>Transaction Volumes & Throughput</h3>
                 <div class="stats-grid">
                     <div class="stat-item highlight-stat">
                         <div class="stat-label">Total Transactions</div>
@@ -352,6 +348,28 @@
                     <div class="stat-item">
                         <div class="stat-label">Total Data Volume</div>
                         <div class="stat-value">{{ report_data.overall_stats.total_bytes | filesizeformat }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Transaction Rate</div>
+                        <div class="stat-value">{{ "%.1f"|format(report_data.overall_stats.transaction_rate_per_minute) }} Tx/min</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="stat-section">
+                <h3>File Characteristics</h3>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-label">Min File Size</div>
+                        <div class="stat-value">{{ report_data.overall_stats.min_file_size_formatted }}</div>
+                    </div>
+                    <div class="stat-item highlight-stat">
+                        <div class="stat-label">Avg File Size</div>
+                        <div class="stat-value">{{ report_data.overall_stats.avg_file_size_formatted }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Max File Size</div>
+                        <div class="stat-value">{{ report_data.overall_stats.max_file_size_formatted }}</div>
                     </div>
                 </div>
             </div>
@@ -362,10 +380,6 @@
                     <div class="stat-item highlight-stat">
                         <div class="stat-label">Average Rate</div>
                         <div class="stat-value">{{ report_data.overall_stats.avg_data_rate_formatted }}</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-label">Minimum Rate</div>
-                        <div class="stat-value">{{ report_data.overall_stats.min_data_rate_formatted }}</div>
                     </div>
                     <div class="stat-item">
                         <div class="stat-label">Maximum Rate</div>
@@ -380,10 +394,6 @@
                     <div class="stat-item highlight-stat">
                         <div class="stat-label">Average Time</div>
                         <div class="stat-value">{{ report_data.overall_stats.avg_transit_time_formatted }}</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-label">Minimum Time</div>
-                        <div class="stat-value">{{ report_data.overall_stats.min_transit_time_formatted }}</div>
                     </div>
                     <div class="stat-item">
                         <div class="stat-label">Maximum Time</div>
@@ -409,8 +419,8 @@
                 <ul class="status-list">
                 {% for status, count in report_data.overall_stats.status_breakdown.items() %}
                     <li class="status-item">
-                        <span class="status-badge {{ status.lower() }}">{{ status }}</span>
-                        <span class="status-count">{{ count }} ({{ "%.1f"|format((count / report_data.overall_stats.total_transactions) * 100 if report_data.overall_stats.total_transactions else 0) }}%)</span>
+                        <span class="status-badge {{ status.lower().replace('_', '-') }}">{{ status }}</span>
+                        <span class="status-count">{{ count }} ({{ "%.0f"|format((count / report_data.overall_stats.total_transactions) * 100 if report_data.overall_stats.total_transactions else 0) }}%)</span>
                     </li>
                 {% endfor %}
                 </ul>
@@ -436,15 +446,29 @@
             </div>
             
             <div class="stat-section">
+                <h3>File Characteristics</h3>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-label">Min File Size</div>
+                        <div class="stat-value">{{ user_stats.min_file_size_formatted }}</div>
+                    </div>
+                    <div class="stat-item highlight-stat">
+                        <div class="stat-label">Avg File Size</div>
+                        <div class="stat-value">{{ user_stats.avg_file_size_formatted }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Max File Size</div>
+                        <div class="stat-value">{{ user_stats.max_file_size_formatted }}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="stat-section">
                 <h3>Data Transfer Rates</h3>
                 <div class="stats-grid">
                     <div class="stat-item highlight-stat">
                         <div class="stat-label">Average Rate</div>
                         <div class="stat-value">{{ user_stats.avg_data_rate_formatted }}</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-label">Minimum Rate</div>
-                        <div class="stat-value">{{ user_stats.min_data_rate_formatted }}</div>
                     </div>
                     <div class="stat-item">
                         <div class="stat-label">Maximum Rate</div>
@@ -459,10 +483,6 @@
                     <div class="stat-item highlight-stat">
                         <div class="stat-label">Average Time</div>
                         <div class="stat-value">{{ user_stats.avg_transit_time_formatted }}</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-label">Minimum Time</div>
-                        <div class="stat-value">{{ user_stats.min_transit_time_formatted }}</div>
                     </div>
                     <div class="stat-item">
                         <div class="stat-label">Maximum Time</div>
@@ -488,8 +508,8 @@
                 <ul class="status-list">
                 {% for status, count in user_stats.status_breakdown.items() %}
                     <li class="status-item">
-                        <span class="status-badge {{ status.lower() }}">{{ status }}</span>
-                        <span class="status-count">{{ count }} ({{ "%.1f"|format((count / user_stats.total_transactions) * 100 if user_stats.total_transactions else 0) }}%)</span>
+                        <span class="status-badge {{ status.lower().replace('_', '-') }}">{{ status }}</span>
+                        <span class="status-count">{{ count }} ({{ "%.0f"|format((count / user_stats.total_transactions) * 100 if user_stats.total_transactions else 0) }}%)</span>
                     </li>
                 {% endfor %}
                 </ul>
