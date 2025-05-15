@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Transaction Report</title>
+    <!-- Include global styles with fallback -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') if url_for else '/static/style.css' }}">
     <style>
         /* Modern Report Styles */
         :root {
@@ -244,34 +246,6 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
         
-        .status-badge {
-            display: inline-flex;
-            align-items: center;
-            padding: 0.25rem 0.5rem;
-            border-radius: 50px;
-            font-size: 0.7rem;
-            font-weight: 600;
-            text-transform: none;
-            line-height: 1;
-        }
-        
-        .status-badge.complete {
-            background-color: #e8f7f0;
-            color: #16a057;
-        }
-        
-        .status-badge.submitted {
-            background-color: #fef5e6;
-            color: #d68000;
-        }
-        
-        .status-badge.bad-request,
-        .status-badge.timeout,
-        .status-badge.ep-unavailable,
-        .status-badge.cd-unavailable {
-            background-color: #fbeaea;
-            color: #d63031;
-        }
         
         .status-count {
             font-weight: 600;

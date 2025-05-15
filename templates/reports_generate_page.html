@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 
-{% block title %}Generate Reports - {{ super() }}{% endblock %}
+{% block title %}{{ super() }} :: Query Database{% endblock %}
 
 {% block head_extra %}
     <link rel="stylesheet" type="text/css" href="/static/css/daterangepicker.css" />
     <style>
-        .report-form-container {
+        .query-form-container {
             background-color: #fff;
             padding: 25px;
             border-radius: 8px;
@@ -13,7 +13,7 @@
             max-width: 600px;
             margin: 20px auto;
         }
-        .report-form-container h2 {
+        .query-form-container h2 {
             margin-top: 0;
             margin-bottom: 20px;
             text-align: center;
@@ -33,22 +33,59 @@
             border-radius: 4px;
             box-sizing: border-box;
         }
-        .report-actions {
+        .query-actions {
             display: flex;
             justify-content: space-around; /* Distribute buttons nicely */
             gap: 15px;
             margin-top: 25px;
         }
-        .report-actions .btn {
+        .query-actions .btn {
             flex-grow: 1; /* Make buttons take equal space */
             padding: 12px 15px;
+        }
+        
+        /* Clear DB Button */
+        .admin-actions {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+        
+        .admin-actions h3 {
+            font-size: 1em;
+            margin-bottom: 15px;
+            color: #555;
+        }
+        
+        .clear-db-btn {
+            background-color: var(--danger-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 10px 15px;
+            font-size: 0.9em;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            justify-content: center;
+        }
+        
+        .clear-db-btn:hover {
+            background-color: var(--danger-color-dark);
+        }
+        
+        .clear-db-btn i {
+            font-size: 0.9em;
         }
     </style>
 {% endblock %}
 
 {% block content %}
-<div class="report-form-container">
-    <h2><i class="fas fa-file-alt"></i> Generate Transaction Report</h2>
+<div class="query-form-container">
+    <h2><i class="fas fa-database"></i> Query Database</h2>
     <form id="reportForm" method="POST" action="{{ url_for('download_report') }}">
         <div class="form-group">
             <label for="daterange"><i class="fas fa-calendar-alt"></i> Date Range:</label>
@@ -63,11 +100,21 @@
         </div>
         <input type="hidden" name="report_format" id="report_format_hidden" value="csv"> <!-- Changed ID to avoid conflict -->
         
-        <div class="report-actions">
+        <div class="query-actions">
             <button type="button" id="downloadCsvBtnReportPage" class="btn btn-primary"><i class="fas fa-file-csv"></i> Download CSV</button>
             <button type="button" id="downloadHtmlBtnReportPage" class="btn btn-primary"><i class="fas fa-file-code"></i> Download HTML</button>
         </div>
     </form>
+    
+    <!-- Admin Actions Section -->
+    <div class="admin-actions">
+        <h3>Database Management</h3>
+        <form id="quickClearForm" method="POST" action="{{ url_for('admin_clear_db') }}">
+            <button type="submit" class="clear-db-btn" id="clearDbBtn" title="Clear all transaction records">
+                <i class="fas fa-trash-alt"></i> Clear Database
+            </button>
+        </form>
+    </div>
 </div>
 {% endblock %}
 
@@ -138,6 +185,25 @@
         document.getElementById('downloadHtmlBtnReportPage').addEventListener('click', function() {
             document.getElementById('report_format_hidden').value = 'html';
             document.getElementById('reportForm').submit();
+        });
+        
+        // Add confirm dialog for database clear
+        document.getElementById('quickClearForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            if (confirmDatabaseClear()) {
+                fetch(this.action, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    showGlobalFlash(data.message, data.message_type);
+                })
+                .catch(error => {
+                    showGlobalFlash('Error clearing database', 'error');
+                    console.error('Error:', error);
+                });
+            }
         });
     });
 </script>

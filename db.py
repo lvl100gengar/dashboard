@@ -19,12 +19,9 @@ def get_db_connection():
         return None
 
 def get_recent_transactions(minutes_ago=None, limit=None):
-    print(f"[DB DEBUG] get_recent_transactions called with minutes_ago={minutes_ago}, limit={limit}") # DEBUG
     conn = get_db_connection()
     if not conn:
-        print("[DB DEBUG] Database connection failed.") # DEBUG
         return []
-    print("[DB DEBUG] Database connection successful.") # DEBUG
 
     cursor = conn.cursor(dictionary=True)
     params = []
@@ -42,9 +39,6 @@ def get_recent_transactions(minutes_ago=None, limit=None):
         time_filter = datetime.now() - timedelta(minutes=minutes_ago)
         conditions.append("ingress_time >= %s")
         params.append(time_filter)
-        print(f"[DB DEBUG] Time filter applied: ingress_time >= {time_filter}") # DEBUG
-    else:
-        print("[DB DEBUG] No time filter applied.") # DEBUG
         
     if conditions:
         query_base += " WHERE " + " AND ".join(conditions)
@@ -56,10 +50,8 @@ def get_recent_transactions(minutes_ago=None, limit=None):
         params.append(limit)
         
     try:
-        print(f"[DB DEBUG] Executing query: {query_base} with params: {params}") # DEBUG
         cursor.execute(query_base, tuple(params))
         transactions = cursor.fetchall()
-        print(f"[DB DEBUG] Query returned {len(transactions)} transactions.") # DEBUG
         
         # Calculate transit_time and format times
         for t in transactions:
@@ -169,91 +161,3 @@ def clear_all_transactions():
         if conn.is_connected():
             cursor.close()
             conn.close()
-
-def get_db_metadata():
-    """Fetches metadata about the database like host, type, version, and uptime."""
-    conn = get_db_connection()
-    if not conn:
-        return {"status": "error", "error": "Database connection failed.", "host": os.getenv('DB_HOST', 'N/A')}
-
-    cursor = conn.cursor(dictionary=True)
-    metadata = {
-        "status": "connected",
-        "host": os.getenv('DB_HOST', 'N/A'),
-        "db_type": "MySQL",
-        "version": None,
-        "uptime": None,
-        "error": None
-    }
-    try:
-        cursor.execute("SELECT VERSION() as version;")
-        result = cursor.fetchone()
-        if result:
-            metadata["version"] = result["version"]
-
-        cursor.execute("SHOW GLOBAL STATUS LIKE 'Uptime';")
-        result = cursor.fetchone()
-        if result and result['Value']:
-            uptime_seconds = int(result['Value'])
-            days = uptime_seconds // (24 * 3600)
-            uptime_seconds %= (24 * 3600)
-            hours = uptime_seconds // 3600
-            uptime_seconds %= 3600
-            minutes = uptime_seconds // 60
-            if days > 0:
-                metadata["uptime"] = f"{days}d {hours}h {minutes}m"
-            elif hours > 0:
-                metadata["uptime"] = f"{hours}h {minutes}m"
-            else:
-                metadata["uptime"] = f"{minutes}m"
-        else:
-            metadata["uptime"] = "N/A"
-            
-    except mysql.connector.Error as err:
-        print(f"Error fetching DB metadata: {err}")
-        metadata["status"] = "error"
-        metadata["error"] = str(err)
-        metadata["version"] = "Error"
-        metadata["uptime"] = "Error"
-    finally:
-        if conn.is_connected():
-            cursor.close()
-            conn.close()
-    return metadata
-
-def get_db_table_info():
-    """Fetches information about database tables, like row counts and overall size."""
-    conn = get_db_connection()
-    if not conn:
-        return {"error": "Database connection failed."}
-
-    cursor = conn.cursor(dictionary=True)
-    info = {
-        "table_stats": {},
-        "total_records_transactions": 0,
-        "db_size_mb": None,
-        "error": None
-    }
-    try:
-        cursor.execute("SELECT table_name, table_rows FROM INFORMATION_SCHEMA.TABLES WHERE table_schema = DATABASE();")
-        tables = cursor.fetchall()
-        for table in tables:
-            info["table_stats"][table["table_name"]] = table["table_rows"]
-            if table["table_name"] == "transactions":
-                info["total_records_transactions"] = table["table_rows"]
-        
-        cursor.execute("SELECT table_schema AS \"Database\", ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS \"SizeMB\" FROM information_schema.TABLES WHERE table_schema = DATABASE() GROUP BY table_schema;")
-        size_result = cursor.fetchone()
-        if size_result:
-            info["db_size_mb"] = f"{size_result['SizeMB']} MB"
-            
-    except mysql.connector.Error as err:
-        print(f"Error fetching DB table info: {err}")
-        info["error"] = str(err)
-    finally:
-        if conn.is_connected():
-            cursor.close()
-            conn.close()
-    return info
-
-# Add more functions here for other database operations as needed 

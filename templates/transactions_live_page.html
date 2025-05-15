@@ -1,20 +1,20 @@
 {% extends "base.html" %}
 
-{% block title %}Live Transactions - {{ super() }}{% endblock %}
+{% block title %}{{ super() }} :: Transfer Feed{% endblock %}
 
 {% block content %}
 <div class="transactions-section">
     <div class="section-header">
-        <h2><i class="fas fa-history"></i> Live Transactions Feed</h2>
-        <div class="table-controls">
-            <div class="control-item">
+        <h2><i class="fas fa-history"></i> Transfer Feed</h2>
+        <div class="control-panel">
+            <div class="control-group">
                 <label for="filter_username">Username:</label>
                 <select id="filter_username" name="filter_username">
                     <option value="">All Usernames</option>
                     <!-- Usernames loaded by JS -->
                 </select>
             </div>
-            <div class="control-item">
+            <div class="control-group">
                 <label for="filter_status">Status:</label>
                 <select id="filter_status" name="filter_status">
                     <option value="">All Statuses</option>
@@ -26,7 +26,7 @@
                     <option value="CD_UNAVAILABLE">CD_UNAVAILABLE</option>
                 </select>
             </div>
-            <div class="control-item">
+            <div class="control-group">
                 <label for="num_items">Items:</label>
                 <select name="num_items" id="num_items">
                     <option value="25">25</option>
@@ -35,9 +35,9 @@
                     <option value="200">200</option>
                 </select>
             </div>
-            <div class="control-item">
+            <div class="control-group">
                 <label for="live_refresh_rate">Auto-Refresh:</label>
-                <select name="live_refresh_rate" id="live_refresh_rate" class="control-select">
+                <select name="live_refresh_rate" id="live_refresh_rate">
                     <option value="0">Off</option>
                     <option value="1">1s</option>
                     <option value="3" selected>3s</option>
@@ -49,7 +49,7 @@
     </div>
 
     <div id="liveTableContainer">
-        <div class="loading-indicator">
+        <div class="loading">
             <i class="fas fa-spinner fa-spin"></i> Loading transaction data...
         </div>
     </div>
@@ -57,156 +57,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-    let liveRefreshTimer;
-    let isRefreshingTransactions = false;
-    let currentLiveTransactions = []; // To store all fetched transactions for client-side filtering
-
-    // Copied from original index.html, ensure it's available or move to a global JS file
-    function formatFileSize(bytes) {
-        if (bytes === null || bytes === undefined) return 'N/A';
-        if (bytes < 1024) return bytes + ' Bytes';
-        else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
-        else if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB';
-        else return (bytes / 1073741824).toFixed(1) + ' GB';
-    }
-
-    function updateLiveTransactionTableDisplay() {
-        const tableContainer = document.getElementById('liveTableContainer');
-        const usernameFilter = document.getElementById('filter_username').value;
-        const statusFilter = document.getElementById('filter_status').value;
-
-        const filteredTransactions = currentLiveTransactions.filter(tx => {
-            const usernameMatch = !usernameFilter || tx.username === usernameFilter;
-            const statusMatch = !statusFilter || tx.status === statusFilter;
-            return usernameMatch && statusMatch;
-        });
-
-        if (filteredTransactions.length === 0) {
-            if (currentLiveTransactions.length > 0 && (usernameFilter || statusFilter)) {
-                 tableContainer.innerHTML = '<div class="no-data-message"><i class="fas fa-filter"></i> No transactions match the selected filters.</div>';
-            } else {
-                tableContainer.innerHTML = '<div class="no-data-message"><i class="fas fa-info-circle"></i> No transactions to display.</div>';
-            }
-            return;
-        }
-        
-        let tableHtml = `
-            <div class="table-responsive">
-                <table id="liveTransactionsTable" class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Username</th><th>File Name</th><th class="numeric">File Size</th>
-                            <th>Ingress Time</th><th>Egress Time</th><th class="numeric">Transit Time</th>
-                            <th>Status</th><th class="actions">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>`;
-        
-        filteredTransactions.forEach(tx => {
-            const statusClass = tx.status ? tx.status.toLowerCase().replace('_', '-') : 'unknown';
-            tableHtml += `
-                <tr class="status-${statusClass}">
-                    <td>${tx.username || 'N/A'}</td>
-                    <td class="filename">${tx.file_name || 'N/A'}</td>
-                    <td class="numeric">${formatFileSize(tx.file_size)}</td>
-                    <td>${tx.ingress_time_str || 'N/A'}</td>
-                    <td>${tx.egress_time_str || 'N/A'}</td>
-                    <td class="numeric">${tx.transit_time || 'N/A'}</td>
-                    <td><span class="status-badge ${statusClass}">${tx.status || 'UNKNOWN'}</span></td>
-                    <td class="actions">
-                        <button class="copy-btn" data-transaction='${JSON.stringify(tx).replace(/'/g, "&#39;")}' title="Copy transaction details">
-                            <i class="fas fa-copy"></i>
-                        </button>
-                    </td>
-                </tr>`;
-        });
-        tableHtml += '</tbody></table></div>';
-        tableContainer.innerHTML = tableHtml;
-
-        document.querySelectorAll('.copy-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const txData = JSON.parse(this.getAttribute('data-transaction'));
-                const textToCopy = Object.entries(txData)
-                    .filter(([key]) => !key.includes('_str') && key !== 'transit_time' && typeof txData[key] !== 'object')
-                    .map(([key, value]) => `${key}: ${value}`)
-                    .join('\n');
-                navigator.clipboard.writeText(textToCopy).then(() => {
-                    const originalIcon = this.innerHTML;
-                    this.innerHTML = '<i class="fas fa-check"></i>';
-                    setTimeout(() => { this.innerHTML = originalIcon; }, 1000);
-                }).catch(err => console.error('Copy failed:', err));
-            });
-        });
-    }
-
-    function fetchLiveTransactions() {
-        if (isRefreshingTransactions) return;
-        isRefreshingTransactions = true;
-
-        const numItems = document.getElementById('num_items').value;
-        const tableContainer = document.getElementById('liveTableContainer');
-
-        if (!tableContainer.querySelector('#liveTransactionsTable')) {
-            tableContainer.innerHTML = '<div class="loading-indicator"><i class="fas fa-spinner fa-spin"></i> Loading transaction data...</div>';
-        }
-
-        fetch(`/api/transactions-feed?num_items=${numItems}`)
-            .then(response => {
-                if (!response.ok) throw new Error('Network response was not ok: ' + response.statusText);
-                return response.json();
-            })
-            .then(data => {
-                currentLiveTransactions = data.transactions || [];
-                updateLiveTransactionTableDisplay(); // Update table with potentially filtered data
-                document.getElementById('num_items').value = data.num_items; // Reflect actual num_items
-            })
-            .catch(error => {
-                console.error('Error fetching live transactions:', error);
-                tableContainer.innerHTML = '<div class="error-message"><i class="fas fa-exclamation-triangle"></i> Error loading transactions.</div>';
-            })
-            .finally(() => {
-                isRefreshingTransactions = false;
-            });
-    }
-
-    function loadUsernamesForFilter() {
-        fetch('/api/usernames')
-            .then(response => response.json())
-            .then(data => {
-                const usernameSelect = document.getElementById('filter_username');
-                const currentValue = usernameSelect.value;
-                while (usernameSelect.options.length > 1) usernameSelect.remove(1);
-                data.usernames.forEach(username => {
-                    const option = document.createElement('option');
-                    option.value = username; option.textContent = username;
-                    usernameSelect.appendChild(option);
-                });
-                if (currentValue) usernameSelect.value = currentValue;
-            })
-            .catch(error => console.error('Error loading usernames for filter:', error));
-    }
-
-    function setupLiveTransactionsAutoRefresh() {
-        clearInterval(liveRefreshTimer);
-        const refreshRate = parseInt(document.getElementById('live_refresh_rate').value, 10) * 1000;
-        if (refreshRate > 0) {
-            liveRefreshTimer = setInterval(fetchLiveTransactions, refreshRate);
-        }
-    }
-
-    document.addEventListener('DOMContentLoaded', function() {
-        fetchLiveTransactions();
-        loadUsernamesForFilter();
-        setupLiveTransactionsAutoRefresh();
-
-        document.getElementById('num_items').addEventListener('change', fetchLiveTransactions);
-        document.getElementById('filter_username').addEventListener('change', updateLiveTransactionTableDisplay);
-        document.getElementById('filter_status').addEventListener('change', updateLiveTransactionTableDisplay);
-        document.getElementById('live_refresh_rate').addEventListener('change', function(){
-            setupLiveTransactionsAutoRefresh();
-            if (this.value !== "0") fetchLiveTransactions();
-        });
-    });
-</script>
+<!-- Centralized utility scripts -->
+<script src="/static/js/utility.js"></script>
+<script src="/static/js/transactions.js"></script>
 {% endblock %} 

@@ -1,16 +1,12 @@
 from flask import Flask, render_template, request, Response, redirect, url_for, jsonify
-import uuid
-import random
 from datetime import datetime, timedelta
 from db import (
     get_recent_transactions, get_transactions_for_report, 
-    clear_all_transactions, get_unique_usernames,
-    get_db_metadata, get_db_table_info
+    clear_all_transactions, get_unique_usernames
 )
 import csv
 import io
 import statistics # For standard deviation
-import os
 
 app = Flask(__name__)
 
@@ -453,26 +449,6 @@ def api_usernames():
     return jsonify({
         'usernames': usernames
     })
-
-@app.route('/api/db-status')
-def api_get_db_status():
-    metadata = get_db_metadata()
-    if 'host' not in metadata:
-        metadata['host'] = os.getenv('DB_HOST', 'N/A') 
-    return jsonify(metadata)
-
-@app.route('/api/db-table-stats', endpoint='api_get_db_table_stats')
-def api_get_db_table_stats():
-    table_info = get_db_table_info()
-    if table_info.get('error'):
-        return jsonify({"error": table_info['error']}), 500
-    
-    response_data = {
-        "table_stats": table_info.get("table_stats", {}),
-        "total_records": table_info.get("total_records_transactions", 0),
-        "db_size": table_info.get("db_size_mb", "N/A")
-    }
-    return jsonify(response_data)
 
 @app.route('/favicon.ico')
 def favicon():

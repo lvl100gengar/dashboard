@@ -3,337 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Transaction Monitoring{% endblock %}</title>
+    <title>{% block title %}Portal{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="/static/css/fontawesome.all.min.css">
+    <!-- Core utility scripts -->
     <script src="/static/js/jquery-3.6.0.min.js"></script>
+    <script src="/static/js/utility.js"></script>
     {% block head_extra %}{% endblock %}
     <style>
-        /* Modal Styles */
-        .modal {
-            display: none; /* Hidden by default */
-            position: fixed; /* Stay in place */
-            z-index: 1000; /* Sit on top */
-            left: 0;
-            top: 0;
-            width: 100%; /* Full width */
-            height: 100%; /* Full height */
-            overflow: auto; /* Enable scroll if needed */
-            background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
-        }
 
-        .modal-content {
-            background-color: #fefefe;
-            margin: 10% auto; /* Centered */
-            padding: 20px;
-            border: 1px solid #888;
-            width: 80%;
-            max-width: 500px; /* Max width */
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow-lg);
-            position: relative;
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding-bottom: 10px;
-            border-bottom: 1px solid var(--border-color);
-            margin-bottom: 15px;
-        }
-        
-        .modal-header h3 {
-            margin: 0;
-            font-size: 1.2em;
-            color: var(--secondary-color);
-        }
-
-        .close-modal-btn {
-            color: #aaa;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-
-        .close-modal-btn:hover,
-        .close-modal-btn:focus {
-            color: black;
-            text-decoration: none;
-        }
-        /* Adjust db-status-details for modal context if needed */
-        .db-status-details .details-content { /* Renamed from .db-status-details .details-content for clarity */
-            padding-top: 0; /* Modal content has padding */
-        }
-        .db-status-details .detail-row {
-            margin-bottom: 8px; /* Consistent spacing for details */
-        }
-        .db-stats-container {
-            margin-top: 15px;
-            padding-top: 10px;
-            border-top: 1px solid var(--border-color-light);
-        }
     </style>
 </head>
 <body>
     <nav class="navbar">
         <div class="nav-container">
             <div class="nav-left">
-                <a class="nav-brand" href="{{ url_for('dashboard') }}"><i class="fas fa-shield-alt"></i> Transaction Monitor</a>
+                <a class="nav-brand" href="{{ url_for('dashboard') }}"><i class="fas fa-dungeon"></i> Portal</a>
                 <ul class="nav-menu">
                     <li class="nav-item"><a href="{{ url_for('dashboard') }}" {% if request.endpoint == 'dashboard' %}class="active"{% endif %}><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
-                    <li class="nav-item"><a href="{{ url_for('transactions_live') }}" {% if request.endpoint == 'transactions_live' %}class="active"{% endif %}><i class="fas fa-history"></i> Transactions</a></li>
-                    <li class="nav-item"><a href="{{ url_for('reports_generate') }}" {% if request.endpoint == 'reports_generate' %}class="active"{% endif %}><i class="fas fa-chart-bar"></i> Reports</a></li>
+                    <li class="nav-item"><a href="{{ url_for('transactions_live') }}" {% if request.endpoint == 'transactions_live' %}class="active"{% endif %}><i class="fas fa-arrow-down-up-across-line"></i> Transfers</a></li>
+                    <li class="nav-item"><a href="{{ url_for('reports_generate') }}" {% if request.endpoint == 'reports_generate' %}class="active"{% endif %}><i class="fas fa-database"></i> Query</a></li>
                 </ul>
-            </div>
-            <div class="db-status-wrapper">
-                <div id="db-status-trigger" class="db-status"> <!-- Renamed from db-status-container -->
-                    <span id="db-status-indicator" class="status-indicator"></span>
-                    <div class="status-content">
-                        <span id="db-main-status-text" class="status-text">DB: Checking...</span>
-                    </div>
-                    <i class="fas fa-chevron-down"></i>
-                </div>
             </div>
         </div>
     </nav>
-
-    <!-- The Modal -->
-    <div id="db-status-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3><i class="fas fa-database"></i> Database Management</h3>
-                <span class="close-modal-btn">&times;</span>
-            </div>
-            <div class="modal-body"> <!-- Added modal-body for content -->
-                <div class="detail-row" id="db-error-container" style="display: none;">
-                    <span class="detail-label">Error:</span>
-                    <span class="detail-value" id="db-detail-error">None</span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Type:</span>
-                    <span class="detail-value" id="db-detail-type">Checking...</span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Version:</span>
-                    <span class="detail-value" id="db-detail-version">Checking...</span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Uptime:</span>
-                    <span class="detail-value" id="db-detail-uptime">Checking...</span>
-                </div>
-                <div class="dropdown-section-header">Database Actions</div>
-                <form id="quickClearForm" method="POST" action="{{ url_for('admin_clear_db') }}" class="db-action-form">
-                    <button type="submit" class="db-action-btn db-action-danger" id="clearDbBtn">
-                        <i class="fas fa-trash-alt"></i> Clear All Transactions
-                    </button>
-                </form>
-                
-                <button type="button" class="db-action-btn" id="viewStatsBtn">
-                    <i class="fas fa-chart-bar"></i> View Database Statistics
-                </button>
-                
-                <div id="dbStats" class="db-stats-container" style="display: none;">
-                    <div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading statistics...</div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div id="globalFlashContainer" class="global-flash-container"></div>
     
     <div class="container">
         {% block content %}{% endblock %}
     </div>
     
-    <script>
-        // Global utility functions
-        function confirmDatabaseClear() {
-            return confirm('WARNING: You are about to permanently delete all transaction records.\n\nThis action cannot be undone. Are you absolutely sure you want to proceed?');
-        }
-
-        function showGlobalFlash(message, type = 'info') {
-            const container = document.getElementById('globalFlashContainer');
-            const flashDiv = document.createElement('div');
-            flashDiv.className = `global-flash ${type}`;
-            const icon = type === 'success' ? 'check-circle' : 
-                         type === 'error' ? 'exclamation-circle' : 'info-circle';
-            flashDiv.innerHTML = `<i class="fas fa-${icon}"></i> ${message}`;
-            container.appendChild(flashDiv);
-            setTimeout(() => {
-                flashDiv.style.opacity = '0';
-                setTimeout(() => flashDiv.remove(), 500);
-            }, 5000);
-        }
-
-        // DB Stats display logic (within modal)
-        function toggleDatabaseStats() {
-            const statsContainer = document.getElementById('dbStats');
-            const statsBtn = document.getElementById('viewStatsBtn');
-            
-            if (statsContainer.style.display === 'none') {
-                statsContainer.style.display = 'block';
-                statsBtn.innerHTML = '<i class="fas fa-chart-bar"></i> Hide Statistics';
-                statsContainer.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading statistics...</div>';
-                
-                fetch("{{ url_for('api_get_db_table_stats') }}")
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.error) {
-                            statsContainer.innerHTML = `<div class="error-message"><i class="fas fa-exclamation-triangle"></i> ${data.error}</div>`;
-                            return;
-                        }
-                        let statsHTML = '<div class="stats-grid">'; // Assuming .stats-grid class is defined for layout
-                        if (data.table_stats && Object.keys(data.table_stats).length > 0) {
-                            for (const [table, count] of Object.entries(data.table_stats)) {
-                                statsHTML += `
-                                    <div class="stat-item">
-                                        <span class="stat-label">${table.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
-                                        <span class="stat-value">${count.toLocaleString()} rows</span>
-                                    </div>`;
-                            }
-                        } else {
-                            statsHTML += '<div class="stat-item"><span class="stat-label">No table statistics available.</span></div>';
-                        }
-                        statsHTML += '</div>';
-                        if (data.total_records !== undefined) {
-                             statsHTML += `<p class="stats-note">Total Records (Transactions): ${data.total_records.toLocaleString()}</p>`;
-                        }
-                         if (data.db_size) {
-                             statsHTML += `<p class="stats-note">Approx. DB Size: ${data.db_size}</p>`;
-                        }
-                        statsContainer.innerHTML = statsHTML;
-                    })
-                    .catch(error => {
-                        statsContainer.innerHTML = `<div class="error-message"><i class="fas fa-exclamation-triangle"></i> Failed to load DB stats.</div>`;
-                        console.error("Error fetching DB stats:", error);
-                    });
-            } else {
-                statsContainer.style.display = 'none';
-                statsBtn.innerHTML = '<i class="fas fa-chart-bar"></i> View Database Statistics';
-            }
-        }
-    </script>
     {% block scripts %}{% endblock %}
-
-    <script>
-        // DB Status Update & Modal Control Logic
-        function updateDbStatusDisplay(data) {
-            const indicator = document.getElementById('db-status-indicator');
-            const mainStatusText = document.getElementById('db-main-status-text');
-            
-            const detailType = document.getElementById('db-detail-type');
-            const detailVersion = document.getElementById('db-detail-version');
-            const detailUptime = document.getElementById('db-detail-uptime');
-            const errorContainer = document.getElementById('db-error-container');
-            const detailError = document.getElementById('db-detail-error');
-
-            if (data.status === 'connected') {
-                indicator.className = 'status-indicator connected';
-                mainStatusText.textContent = `DB: ${data.host || 'Unknown Host'} - Connected`;
-                if(detailType) detailType.textContent = data.db_type || 'N/A';
-                if(detailVersion) detailVersion.textContent = data.version || 'N/A';
-                if(detailUptime) detailUptime.textContent = data.uptime || 'N/A';
-                if(errorContainer) errorContainer.style.display = 'none';
-            } else if (data.status === 'error') {
-                indicator.className = 'status-indicator error';
-                mainStatusText.textContent = `DB: ${data.host || 'Error'} - Connection Failed`;
-                if(detailType) detailType.textContent = 'Error';
-                if(detailVersion) detailVersion.textContent = 'Error';
-                if(detailUptime) detailUptime.textContent = 'Error';
-                if(detailError) detailError.textContent = data.error || 'Unknown error';
-                if(errorContainer) errorContainer.style.display = 'block';
-            } else { // checking or other states
-                indicator.className = 'status-indicator checking';
-                mainStatusText.textContent = 'DB: Checking...';
-                if(detailType) detailType.textContent = 'Checking...';
-                if(detailVersion) detailVersion.textContent = 'Checking...';
-                if(detailUptime) detailUptime.textContent = 'Checking...';
-                if(errorContainer) errorContainer.style.display = 'none';
-            }
-        }
-
-        function fetchDbStatus() {
-            fetch("{{ url_for('api_get_db_status') }}")
-                .then(response => {
-                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                    return response.json();
-                })
-                .then(data => updateDbStatusDisplay(data))
-                .catch(error => {
-                    console.error("Error fetching DB status:", error);
-                    updateDbStatusDisplay({ status: 'error', host: 'N/A', error: error.message });
-                });
-        }
-
-        document.addEventListener('DOMContentLoaded', function() {
-            // Modal elements
-            const dbStatusModal = document.getElementById('db-status-modal');
-            const dbStatusTrigger = document.getElementById('db-status-trigger');
-            const closeModalBtn = dbStatusModal.querySelector('.close-modal-btn');
-            const viewStatsBtnInModal = document.getElementById('viewStatsBtn');
-
-
-            // Open modal
-            if (dbStatusTrigger) {
-                dbStatusTrigger.addEventListener('click', function() {
-                    fetchDbStatus(); // Refresh status when opening modal
-                    dbStatusModal.style.display = 'block';
-                });
-            }
-
-            // Close modal actions
-            if (closeModalBtn) {
-                closeModalBtn.addEventListener('click', function() {
-                    dbStatusModal.style.display = 'none';
-                });
-            }
-            window.addEventListener('click', function(event) { // Click outside modal
-                if (event.target == dbStatusModal) {
-                    dbStatusModal.style.display = 'none';
-                }
-            });
-            
-            // View Stats button inside modal
-            if (viewStatsBtnInModal) {
-                viewStatsBtnInModal.addEventListener('click', toggleDatabaseStats);
-            }
-
-            // Quick Clear Form (inside modal)
-            const quickClearForm = document.getElementById('quickClearForm');
-            if (quickClearForm) {
-                quickClearForm.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    if (confirmDatabaseClear()) {
-                        fetch(this.action, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-                        })
-                        .then(response => response.json())
-                        .then(data => {
-                            showGlobalFlash(data.message, data.message_type);
-                            if (data.success) {
-                                dbStatusModal.style.display = 'none'; // Close modal on success
-                                fetchDbStatus(); // Refresh DB status main display
-                                // Optionally, clear/hide the #dbStats content if it was open
-                                const statsContainer = document.getElementById('dbStats');
-                                if (statsContainer) statsContainer.style.display = 'none';
-                                document.getElementById('viewStatsBtn').innerHTML = '<i class="fas fa-chart-bar"></i> View Database Statistics';
-
-                            }
-                        })
-                        .catch(error => {
-                            showGlobalFlash('An error occurred while clearing the database.', 'error');
-                            console.error('Error clearing DB:', error);
-                        });
-                    }
-                });
-            }
-            
-            // Initial fetch and periodic refresh for main DB status display
-            fetchDbStatus();
-            setInterval(fetchDbStatus, 30000); // Refresh every 30 seconds
-        });
-    </script>
 </body>
 </html> 

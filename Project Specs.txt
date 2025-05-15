@@ -23,31 +23,31 @@ CREATE TABLE dashboard.transactions (
 Application Features
 ====================
 The app is a website that displays realtime tracking and stats about transactions using the database table defined above.
+The database already exists and is populated by another application, so this application is primarily going to read it and 
+provide the monitoring dashboard and report generation capabilities.
 
 1. Use Python 3 to create a responsive, performant, and maintainable web application. Use best practices for Python 3 code.
 Make use of styles and icons to create a compelling application. Application will not have access to the internet so 
-ensure any external resources are available offline. Use Flask as the framework.
+ensure any external resources are available offline. Use Flask as the web framework and Tailwind for the CSS.
 
-Make sure the website works even if no database connectivity has been established and generate example data as if the site 
-was being used for a demo. This data can be minimal (no more than 3 rows) and random where necessary. Hardcode the data.
+Make sure the website works even if no database connectivity has been established and indicate connection attempts/errors 
+gracefully.
 
 When developing the application, assume that the database already exists and does not need to be created.
 
 2. Authentication is handled externally so the application need not include authentication, user accounts, permissions, etc.
 
-3. The primary use case is a dashboard which displays realtime statistics and tracking for the last 10, 30 or 60 minutes.
-Display ingress server stats on the left, cd server stats in the middle, and egress server stats on the right. For the 
-ingress stats, show the number of transactions with the BAD_REQUEST and CD_UNAVAILABLE status. For the cd stats, display 
-number of transactions with SUBMITTED status. For the egress stats, show number of COMPLETE and EP_UNAVAILABLE transactions, 
-calculate a data rate and transactions per second for all of these transactions. COMPLETE and EP_UNAVAILABLE transactions 
-are guarantee to have an egress_time.
+3. The primary use case is a dashboard which displays realtime statistics and tracking for the last 10, 30 or 60 seconds.
+Show the distribution of the various transaction status. Calculate the data rate and transactions per second. Calculate the 
+min, max, average, p90, p95, and p99 percentiles for all transactions with COMPLETE and EP_UNAVAILABLE status (all of these 
+transactions are guaranteed to have an egress_time for this calculation). Round all stats to 1 decimal place.
 
-Round all stats to 1 decimal place.
+4. Also show a table of the most recent transactions, refreshed at the same rate as the stats section. Include filters on 
+username and status. Allow user to select the max number of items displayed (50 default, 100, or 200). Columns should include 
+username, file name, file size, ingress time, egress time, transit time (egress time - ingress time) and status. Also include 
+a button/link to allow copying an entire record. Make use of color and style to create visually distinct rows based on status.
 
-4. Also show a table of the most recent transactions. Include filters on username and status. Allow user to select the 
-refresh rate (1s, default 3s, 5s, 10s) number of items displayed (50 default, 100, or 200). Columns should include username, 
-file name, file size, ingress time, egress time, transit time (egress time - ingress time) and status. Also include a 
-button/link to allow copying an entire record. Make use of color and style to create visually distinct rows based on status.
+Username filter should be populated with the distinct usernames present in the data set.
 
 5. Build a form that allows the user to generate reports from the database in a user-friendly manner. Options for the report 
 are datetime range and username (or all users) and report format(s). Default options are daterange corresponding to the last 
@@ -57,6 +57,8 @@ files/bytes transferred, min/max/average data rates, min/max/average transit tim
 stats should include standard deviation figures where it makes sense. Next, show the same stats and data for each distinct 
 username in the dataset.
 
-6. Create a menu/page with administrative functions. Include options to clear the database.
+6. Show a realtime database connection status indicator with the time of the most recent check. Include options to manage the 
+database, such as deleting all data. Database queries (including automatic refreshes) should happen asynchronously in the 
+background without reloading the page in the browser or impacting page load times.
 
 7. Use an .env file to store environment variables, including database connection info.
